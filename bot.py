@@ -14,14 +14,14 @@ def ping_llama(question):
     prompt=f"Q: {question}\nA:"
     with open ("system.txt", "r") as file:
         system = file.read()
-    url = 'http://10.0.0.136:11434/api/generate'
+    url = 'http://localhost:11434/api/generate'
     payload = {
-        'model': 'llama3.2:latest',
+        'model': 'smollm',
         'system': system,
         'prompt': prompt,
         'stream': False,
     }
-
+    
     response = requests.post(url, json=payload)
     return response.json()["response"]
 
@@ -43,8 +43,8 @@ async def ping(interaction: discord.Interaction):
 async def sharky(interaction: discord.Interaction, question: str):
     # response = "Sharky says: hello"    
     await interaction.response.defer()
-
+    
     response = ping_llama(question)
-    await interaction.followup.send_message(response)
+    await interaction.followup.send(response)
 
 bot.run(token)
