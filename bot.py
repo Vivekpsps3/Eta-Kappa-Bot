@@ -14,9 +14,9 @@ def ping_llama(question):
     prompt=f"Q: {question}\nA:"
     with open ("system.txt", "r") as file:
         system = file.read()
-    url = 'http://desktop.server:11434/api/generate'
+    url = 'http://10.0.0.136:11434/api/generate'
     payload = {
-        'model': 'llama3.2',
+        'model': 'llama3.2:latest',
         'system': system,
         'prompt': prompt,
         'stream': False,
@@ -35,12 +35,16 @@ async def on_ready():
 #ping check command
 @bot.tree.command(name="ping", description="Replies with Pong!")
 async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message("Pong!") 
+    await interaction.response.defer()
+
+    await interaction.followup.send_message("Pong!") 
     
 @bot.tree.command(name="sharky", description="Ask Sharky a question")
 async def sharky(interaction: discord.Interaction, question: str):
-    response = "Sharky says: hello"
-    await interaction.response.send_message(response)
+    # response = "Sharky says: hello"    
+    await interaction.response.defer()
 
-# Replace 'YOUR_TOKEN_HERE' with your bot's token
+    response = ping_llama(question)
+    await interaction.followup.send_message(response)
+
 bot.run(token)
