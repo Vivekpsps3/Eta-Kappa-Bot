@@ -10,13 +10,27 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='-', intents=intents)
 
 # Helper
+def chunk_sentences(text, max_tokens=2000):
+    sentences = text.split(". ")
+    chunks = []
+    chunk = ""
+    for sentence in sentences:
+        if len(chunk) + len(sentence) < max_tokens:
+            chunk += sentence + ". "
+        else:
+            chunks.append(chunk)
+            chunk = sentence + ". "
+    if chunk:
+        chunks.append(chunk)
+    return chunks
+
 def ping_llama(question):
     prompt=f"Q: {question}\nA:"
     with open ("system.txt", "r") as file:
         system = file.read()
     url = 'http://localhost:11434/api/generate'
     payload = {
-        'model': 'smollm',
+        'model': 'llama3.2:latest',
         'system': system,
         'prompt': prompt,
         'stream': False,
@@ -45,6 +59,8 @@ async def sharky(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
     
     response = ping_llama(question)
+    if len(response) > 2000:
+        response = response[:1999]
     await interaction.followup.send(response)
 
 bot.run(token)
