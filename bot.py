@@ -112,7 +112,7 @@ async def smarty(interaction: discord.Interaction, question: str):
     # Initialize variables for streaming
     current_message = ""
     temp_buffer = ""
-    message = None
+    messages = []
     
     for line in response.iter_lines():
         if line:
@@ -125,25 +125,38 @@ async def smarty(interaction: discord.Interaction, question: str):
                     current_message += temp_buffer
                     temp_buffer = ""
                     
-                    # Ensure message length doesn't exceed Discord's limit
+                    # If current message exceeds Discord's limit, start a new message
                     if len(current_message) > 1999:
-                        current_message = current_message[:1999]
-                        break
-                    
-                    # Edit existing message or send first message
-                    if message:
-                        await message.edit(content=current_message)
+                        # Send or update the current message
+                        if messages:
+                            await messages[-1].edit(content=current_message[:1999])
+                        else:
+                            messages.append(await interaction.followup.send(current_message[:1999]))
+                        
+                        # Start a new message with the overflow
+                        current_message = current_message[1999:]
+                        messages.append(await interaction.followup.send(current_message))
                     else:
-                        message = await interaction.followup.send(current_message)
+                        # Update or send the current message
+                        if messages:
+                            await messages[-1].edit(content=current_message)
+                        else:
+                            messages.append(await interaction.followup.send(current_message))
     
-    # Send any remaining characters and final message
+    # Handle any remaining content
     if temp_buffer:
         current_message += temp_buffer
         if len(current_message) > 1999:
-            current_message = current_message[:1999]
-        if message:
-            await message.edit(content=current_message)
+            if messages:
+                await messages[-1].edit(content=current_message[:1999])
+                messages.append(await interaction.followup.send(current_message[1999:]))
+            else:
+                messages.append(await interaction.followup.send(current_message[:1999]))
+                messages.append(await interaction.followup.send(current_message[1999:]))
         else:
-            await interaction.followup.send(current_message)
+            if messages:
+                await messages[-1].edit(content=current_message)
+            else:
+                messages.append(await interaction.followup.send(current_message))
 
 bot.run(token)
