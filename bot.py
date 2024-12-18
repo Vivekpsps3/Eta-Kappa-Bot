@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import requests
+import json
 
 with open ("secrets.env", "r") as file:
     token = file.read()
@@ -24,22 +25,6 @@ def chunk_sentences(text, max_tokens=2000):
         chunks.append(chunk)
     return chunks
 
-def ping_llama(question):
-    prompt=f"Q: {question}\nA:"
-    with open ("system.txt", "r") as file:
-        system = file.read()
-    url = 'http://localhost:11434/api/generate'
-    payload = {
-        'model': 'llama3.2:latest',
-        'system': system,
-        'prompt': prompt,
-        'stream': False,
-    }
-    
-    response = requests.post(url, json=payload)
-    return response.json()["response"]
-
-
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
@@ -52,15 +37,59 @@ async def ping(interaction: discord.Interaction):
     await interaction.response.defer()
 
     await interaction.followup.send_message("Pong!") 
-    
+
 @bot.tree.command(name="sharky", description="Ask Sharky a question")
 async def sharky(interaction: discord.Interaction, question: str):
-    # response = "Sharky says: hello"    
     await interaction.response.defer()
     
-    response = ping_llama(question)
-    if len(response) > 2000:
-        response = response[:1999]
-    await interaction.followup.send(response)
+    url = 'http://192.168.0.181:11434/api/generate'
+    with open("system.txt", "r") as file:
+        system = file.read()
+    
+    payload = {
+        'model': 'llama3.2:latest',
+        'system': system,
+        'prompt': f"Q: {question}\nA:",
+        'stream': True,
+    }
+    
+    response = requests.post(url, json=payload, stream=True)
+    
+    # Initialize variables for streaming
+    current_message = ""
+    temp_buffer = ""
+    message = None
+    
+    for line in response.iter_lines():
+        if line:
+            json_response = json.loads(line)
+            if 'response' in json_response:
+                temp_buffer += json_response['response']
+                
+                # Update message every 20 characters
+                if len(temp_buffer) >= 20:
+                    current_message += temp_buffer
+                    temp_buffer = ""
+                    
+                    # Ensure message length doesn't exceed Discord's limit
+                    if len(current_message) > 1999:
+                        current_message = current_message[:1999]
+                        break
+                    
+                    # Edit existing message or send first message
+                    if message:
+                        await message.edit(content=current_message)
+                    else:
+                        message = await interaction.followup.send(current_message)
+    
+    # Send any remaining characters and final message
+    if temp_buffer:
+        current_message += temp_buffer
+        if len(current_message) > 1999:
+            current_message = current_message[:1999]
+        if message:
+            await message.edit(content=current_message)
+        else:
+            await interaction.followup.send(current_message)
 
 bot.run(token)
