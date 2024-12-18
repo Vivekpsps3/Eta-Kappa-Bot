@@ -42,12 +42,66 @@ async def ping(interaction: discord.Interaction):
 async def sharky(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
     
-    url = 'http://192.168.0.181:11434/api/generate'
+    url = 'http://10.0.0.136:11434/api/generate'
     with open("system.txt", "r") as file:
         system = file.read()
     
     payload = {
         'model': 'llama3.2:latest',
+        'system': system,
+        'prompt': f"Q: {question}\nA:",
+        'stream': True,
+    }
+    
+    response = requests.post(url, json=payload, stream=True)
+    
+    # Initialize variables for streaming
+    current_message = ""
+    temp_buffer = ""
+    message = None
+    
+    for line in response.iter_lines():
+        if line:
+            json_response = json.loads(line)
+            if 'response' in json_response:
+                temp_buffer += json_response['response']
+                
+                # Update message every 20 characters
+                if len(temp_buffer) >= 20:
+                    current_message += temp_buffer
+                    temp_buffer = ""
+                    
+                    # Ensure message length doesn't exceed Discord's limit
+                    if len(current_message) > 1999:
+                        current_message = current_message[:1999]
+                        break
+                    
+                    # Edit existing message or send first message
+                    if message:
+                        await message.edit(content=current_message)
+                    else:
+                        message = await interaction.followup.send(current_message)
+    
+    # Send any remaining characters and final message
+    if temp_buffer:
+        current_message += temp_buffer
+        if len(current_message) > 1999:
+            current_message = current_message[:1999]
+        if message:
+            await message.edit(content=current_message)
+        else:
+            await interaction.followup.send(current_message)
+
+@bot.tree.command(name="smarty", description="Ask Smart Sharky a question")
+async def smarty(interaction: discord.Interaction, question: str):
+    await interaction.response.defer()
+    
+    url = 'http://10.0.0.136:11434/api/generate'
+    with open("system.txt", "r") as file:
+        system = file.read()
+    
+    payload = {
+        'model': 'solar:latest',
         'system': system,
         'prompt': f"Q: {question}\nA:",
         'stream': True,
