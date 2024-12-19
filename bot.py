@@ -191,7 +191,25 @@ async def move(ctx, move_str: str):
             response_message += "Stalemate! It's a draw."
         elif board.is_insufficient_material():
             response_message += "Insufficient material! It's a draw."
+        elif board.is_seventyfive_moves():
+            response_message += "75-moves rule! It's a draw."
+        elif board.is_fivefold_repetition():
+            response_message += "Fivefold repetition! It's a draw."
+        else:
+            response_message += "Move successful."
     
     await ctx.response.send_message(response_message)
+
+@bot.tree.command(name='stockfish', description="Play Stockfish's move as the next move")
+async def stockfish(ctx):
+    """Get the best move from Stockfish."""
+    global board
+    await ctx.response.defer()
+    import chess.engine
+    engine = chess.engine.SimpleEngine.popen_uci("stockfish")
+    result = engine.play(board, chess.engine.Limit(time=1))
+    engine.quit()
+    board.push(result.move)
+    await ctx.followup.send(f"```{board}```")
 
 bot.run(token)
