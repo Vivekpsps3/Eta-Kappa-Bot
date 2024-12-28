@@ -4,6 +4,11 @@ import requests
 import json
 import chess
 
+from src import chatbot as Chatbot
+
+# Gemini chatbot
+gbot = Chatbot.gemini()
+
 with open ("secrets.env", "r") as file:
     token = file.read()
 
@@ -146,6 +151,37 @@ async def smarty(interaction: discord.Interaction, question: str):
             else:
                 messages.append(await interaction.followup.send(current_message))
 import chess
+
+@bot.tree.command(name='gemini', description="Uses Gemini to come up with a response")
+async def gemini(ctx, *, text: str):
+    """Uses Gemini to come up with a response."""
+    await ctx.response.defer()
+    global gbot
+    output = gbot.request(text)
+    if len(output) > 2000:
+        for i in range(0, len(output), 2000):
+            await ctx.followup.send(output[i:i+2000])
+    else:
+        await ctx.followup.send(output)
+
+@bot.tree.command(name='gchat', description="Uses Gemini to chat with the bot")
+async def gchat(ctx, *, text: str):
+    """Uses Gemini to chat with the bot."""
+    await ctx.response.defer()
+    global gbot
+    output = gbot.chat(text)
+    if len(output) > 2000:
+        for i in range(0, len(output), 2000):
+            await ctx.followup.send(output[i:i+2000])
+    else:
+        await ctx.followup.send(output)
+
+@bot.tree.command(name='gclear', description="Clears the Gemini chat history")
+async def gclear(ctx):
+    """Clears the Gemini chat history."""
+    global gbot
+    gbot.clear()
+    await ctx.response.send_message("Chat history cleared.")
 
 @bot.tree.command(name='new_chess', description="Restart or start a new game of chess")
 async def new_chess(ctx):
