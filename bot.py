@@ -1,5 +1,7 @@
 import discord
 from discord.ext import commands
+from discord.ui import Button, View
+
 import requests
 import json
 import chess
@@ -247,5 +249,152 @@ async def stockfish(ctx):
     engine.quit()
     board.push(result.move)
     await ctx.followup.send(f"```{board}```")
+
+@bot.tree.command(name="list_members", description="List members based on role conditions with confirmation.")
+async def list_members(interaction: discord.Interaction, role_condition: str = "@everyone"):
+    """Lists members based on role conditions with confirmation."""
+    AllowedRoles = ["HKN Exec Comm"]
+    if not any(role.name in AllowedRoles for role in interaction.user.roles):
+        await interaction.response.send_message(f"You do not have permission to use this command. Only members with the {AllowedRoles} role can use it.")
+        return
+    
+    guild = interaction.guild
+    members_to_list = []
+
+    # Parse the condition and loop through all members
+    for member in guild.members:
+        member_roles = [role.name for role in member.roles]
+        
+        # Check if the member's roles meet the role condition
+        if process_roles_condition(role_condition, member_roles):
+            members_to_list.append(member)
+
+    # If no members match the condition
+    if not members_to_list:
+        await interaction.response.send_message(f"No members found matching '{role_condition}'.")
+        return
+
+    # List members and ask for confirmation
+    member_names = [f"{member.name}\t Roles: {', '.join([role.name for role in member.roles if role.name != '@everyone'])}" for member in members_to_list]
+    if role_condition == "@everyone":
+        confirmation_msg = "All members:\n"
+    else:
+        confirmation_msg = f"The following members match the role condition '{role_condition}':\n"
+    confirmation_msg += "\n".join(member_names)
+
+    # Create a confirmation view (with buttons for Yes/No)
+    await interaction.response.send_message(confirmation_msg)
+
+@bot.tree.command(name="remove_members", description="Remove members based on role conditions with confirmation.")
+async def remove_members(ctx, role_condition: str):
+    """Remove members (kick) based on role conditions, with confirmation."""
+    AllowedRoles = ["HKN Exec Comm"]
+    if not any(role.name in AllowedRoles for role in ctx.author.roles):
+        await ctx.send(f"You do not have permission to use this command. Only members with the {AllowedRoles} role can use it.")
+        return
+    
+    guild = ctx.guild
+    members_to_remove = []
+
+    # Parse the condition and loop through all members
+    for member in guild.members:
+        member_roles = [role.name for role in member.roles]
+        
+        # Check if the member's roles meet the role condition
+        if process_roles_condition(role_condition, member_roles):
+            members_to_remove.append(member)
+
+    # If no members match the condition
+    if not members_to_remove:
+        await ctx.send(f"No members found matching '{role_condition}'.")
+        return
+
+    # List members and ask for confirmation
+    member_names = [f"{member.name}\t Roles: {', '.join([role.name for role in member.roles if role.name != '@everyone'])}" for member in members_to_remove]
+    confirmation_msg = f"The following members will be removed based on the role condition '{role_condition}':\n"
+    confirmation_msg += "\n".join(member_names)
+
+    # Create a confirmation view (with buttons for Yes/No)
+    view = ConfirmationView(ctx, members_to_remove, role_condition, action='remove')
+    await ctx.send(confirmation_msg, view=view)
+
+# Helper Stuff
+def process_roles_condition(roles_string, member_roles):
+    """Process the role condition string and check if the member's roles match."""
+    def evaluate_condition(condition, member_roles):
+        """Evaluate a single condition or a parenthesized group."""
+        # Remove any outer parentheses
+        if condition.startswith("(") and condition.endswith(")"):
+            return process_roles_condition(condition[1:-1], member_roles)
+        
+        # Handle NOT condition
+        if condition.startswith("!"):
+            return condition[1:].strip() not in member_roles
+        
+        # Check if the role is present in member roles
+        return condition.strip() in member_roles
+
+    # Split by OR (|)
+    or_conditions = roles_string.split("|")
+
+    for condition in or_conditions:
+        # Split by AND (&)
+        and_conditions = condition.split("&")
+
+        # Check if all AND conditions are met for this part of the OR condition
+        if all(evaluate_condition(role.strip(), member_roles) for role in and_conditions):
+            return True
+
+    return False
+
+class ConfirmationView(View):
+    def __init__(self, ctx, members_to_remove, role_condition, action):
+        super().__init__(timeout=30)  # Set timeout for response (30 seconds)
+        self.ctx = ctx
+        self.members_to_remove = members_to_remove
+        self.role_condition = role_condition
+        self.action = action  # Action to perform (either 'remove' or 'list')
+        self.confirmed = False
+    
+    async def on_timeout(self):
+        """Handle timeout if the user doesn't respond in time."""
+        await self.ctx.send("Confirmation timeout. No action was taken.")
+
+    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: Button):
+        """Handles the confirmation response."""
+        self.confirmed = True
+        await interaction.response.send_message(f"Proceeding with the action: {self.action} for {len(self.members_to_remove)} member(s).")
+
+        # Perform the action (remove members or list them)
+        if self.action == 'remove':
+            members_removed = []
+            for member in self.members_to_remove:
+                try:
+                    await member.kick(reason=f"Matched role condition: {self.role_condition}")
+                    members_removed.append(member.name)
+                except discord.Forbidden:
+                    print(f"Could not remove {member.name} (insufficient permissions).")
+                except discord.HTTPException as e:
+                    print(f"Failed to remove {member.name}: {e}")
+
+            if members_removed:
+                await self.ctx.send(f"Members removed: {', '.join(members_removed)}")
+            else:
+                await self.ctx.send(f"No members could be removed.")
+        elif self.action == 'list':
+            member_names = [member.name for member in self.members_to_remove]
+            await self.ctx.send(f"Members matching '{self.role_condition}':\n" + "\n".join(member_names))
+
+        # Stop the view from accepting further responses
+        self.stop()
+
+    @discord.ui.button(label="No", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: Button):
+        """Handles the cancellation response."""
+        self.confirmed = False
+        await interaction.response.send_message(f"Action canceled. No members were {self.action}ed.")
+        self.stop()
+
 
 bot.run(token)
