@@ -253,6 +253,20 @@ async def stockfish(ctx):
 
 @bot.tree.command(name="list_members", description="List members based on role conditions with confirmation.")
 async def list_members(interaction: discord.Interaction, role_condition: str = "@everyone"):
+    """
+    Lists members based on role conditions with confirmation.
+    Args:
+        interaction (discord.Interaction): The interaction object representing the command invocation.
+        role_condition (str, optional): The role condition to filter members by. Defaults to "@everyone".
+    Returns:
+        None: This function sends messages to the interaction response and does not return any value.
+    Raises:
+        None: This function does not raise any exceptions.
+    Notes:
+        - Only members with the "HKN Exec Comm" role are allowed to use this command.
+        - If no members match the role condition, a message is sent indicating no members were found.
+        - A confirmation message is sent before listing the members, with a view containing Yes/No buttons for confirmation.
+    """
     """Lists members based on role conditions with confirmation."""
     AllowedRoles = ["HKN Exec Comm"]
     if not any(role.name in AllowedRoles for role in interaction.user.roles):
@@ -288,6 +302,19 @@ async def list_members(interaction: discord.Interaction, role_condition: str = "
 
 @bot.tree.command(name="remove_members", description="Remove members based on role conditions with confirmation.")
 async def remove_members(interaction: discord.Interaction, role_condition: str):
+    """
+    Remove members (kick) based on role conditions, with confirmation.
+    Args:
+        interaction (discord.Interaction): The interaction object representing the command invocation.
+        role_condition (str): The condition to check against members' roles.
+    Returns:
+        None
+    Behavior:
+        - Checks if the user invoking the command has the required role.
+        - Parses the role condition and identifies members matching the condition.
+        - If no members match the condition, sends a message indicating so.
+        - Lists members matching the condition and asks for confirmation before removal.
+    """
     """Remove members (kick) based on role conditions, with confirmation."""
     AllowedRoles = ["HKN Exec Comm"]
     if not any(role.name in AllowedRoles for role in interaction.user.roles):
@@ -321,6 +348,17 @@ async def remove_members(interaction: discord.Interaction, role_condition: str):
 
 # Helper Stuff
 def process_roles_condition(roles_string, member_roles):
+    """
+    Process the role condition string and check if the member's roles match.
+    The roles_string can contain roles separated by OR (|) and AND (&) operators.
+    Parentheses can be used to group conditions. The NOT operator (!) can be used
+    to negate a role condition.
+    Args:
+        roles_string (str): The string representing the role conditions.
+        member_roles (list): The list of roles that the member has.
+    Returns:
+        bool: True if the member's roles match the conditions, False otherwise.
+    """
     """Process the role condition string and check if the member's roles match."""
     def evaluate_condition(condition, member_roles):
         """Evaluate a single condition or a parenthesized group."""
