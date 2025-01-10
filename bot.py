@@ -269,6 +269,10 @@ async def list_members(interaction: discord.Interaction, role_condition: str = "
         - A confirmation message is sent before listing the members, with a view containing Yes/No buttons for confirmation.
     """
     """Lists members based on role conditions with confirmation."""
+    # print logging of the command
+    print(f"\nUser: {interaction.user.name} ({interaction.user.id})")
+    print(f"Command: remove_members, Role Condition: {role_condition}")
+
     AllowedRoles = ["HKN Exec Comm"]
     if not interaction.guild:
         await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
@@ -304,7 +308,7 @@ async def list_members(interaction: discord.Interaction, role_condition: str = "
 
     # Create a confirmation view (with buttons for Yes/No)
     view = ConfirmationView(interaction, members_to_list, role_condition, action='list', ephm=True)
-    await interaction.response.send_message(confirmation_msg, view=view, ephemeral=True)
+    await interaction.response.send_message(confirmation_msg, view=view)
 
 @bot.tree.command(name="remove_members", description="Remove members based on role conditions with confirmation.")
 async def remove_members(interaction: discord.Interaction, role_condition: str):
@@ -322,6 +326,10 @@ async def remove_members(interaction: discord.Interaction, role_condition: str):
         - Lists members matching the condition and asks for confirmation before removal.
     """
     """Remove members (kick) based on role conditions, with confirmation."""
+    # print logging of the command\
+    print(f"\nUser: {interaction.user.name} ({interaction.user.id})")
+    print(f"Command: remove_members, Role Condition: {role_condition}")
+
     AllowedRoles = ["HKN Exec Comm"]
     if not any(role.name in AllowedRoles for role in interaction.user.roles):
         await interaction.response.send_message(f"You do not have permission to use this command. Only members with the {AllowedRoles} role can use it.")
@@ -354,7 +362,7 @@ async def remove_members(interaction: discord.Interaction, role_condition: str):
         await interaction.response.send_message(confirmation_msg, view=view, ephemeral=True)
     else:
         new_msg = confirmation_msg[:1800] + "\n\n```diff\n-WARNING: To Many Members. Only the first 1800 characters are shown. To see the full list, use the `/list_members` Command.\n```"
-        await interaction.response.send_message(new_msg, view=view, ephemeral=True)
+        await interaction.response.send_message(new_msg, view=view)
 
 # Helper Stuff
 def process_roles_condition(roles_string, member_roles):
