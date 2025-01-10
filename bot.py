@@ -435,6 +435,7 @@ class ConfirmationView(View):
 
             if members_removed:
                 msg = '\n'.join(members_removed)
+                await self.interaction.followup.send(f"Successfully removed the following members:")
                 for i in range(0, len(msg), 1900):
                     await self.interaction.followup.send(f"{msg[i:i+1900]}\n({i//1900}/{len(msg) // 1900}) ")   
             else:
