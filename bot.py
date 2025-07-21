@@ -5,52 +5,55 @@ from discord.ui import Button, View
 import requests
 import json
 import chess
+from dotenv import load_dotenv
+import os
 
 from src import chatbot as Chatbot
 
 # Gemini chatbot
 gbot = Chatbot.gemini()
 
-with open ("secrets.env", "r") as file:
-    token = file.read()
+# Load environment variables from a .env file
+load_dotenv()
 
+# Retrieve the token from the environment variables
+token = os.getenv("DISCORD_TOKEN")
+if not token:
+    raise ValueError("DISCORD_TOKEN is not set in the .env file")
+
+# Configure bot intents
 intents = discord.Intents.default()
-
 intents.message_content = True
 intents.members = True
+
 bot = commands.Bot(command_prefix='-', intents=intents)
 board = chess.Board()
 
+# Event: Bot ready
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
-    # Sync commands with Discord
     await bot.tree.sync()
 
-#ping check command
+# Command: Ping
 @bot.tree.command(name="ping", description="Replies with Pong!")
 async def ping(interaction: discord.Interaction):
-    # await interaction.response.defer()
+    await interaction.response.send_message("Pong!")
 
-    await interaction.response.send_message("Pong!") 
-
+# Command: Sharky
 @bot.tree.command(name="sharky", description="Ask Sharky a question")
 async def sharky(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
-    
     url = 'http://10.0.0.136:11434/api/generate'
     with open("system.txt", "r") as file:
         system = file.read()
-    
     payload = {
         'model': 'llama3.2:latest',
         'system': system,
         'prompt': f"Q: {question}\nA:",
         'stream': True,
     }
-    
     response = requests.post(url, json=payload, stream=True)
-    
     # Initialize variables for streaming
     current_message = ""
     temp_buffer = ""
@@ -88,23 +91,20 @@ async def sharky(interaction: discord.Interaction, question: str):
         else:
             await interaction.followup.send(current_message)
 
+# Command: Smarty
 @bot.tree.command(name="smarty", description="Ask Smart Sharky a question")
 async def smarty(interaction: discord.Interaction, question: str):
     await interaction.response.defer()
-    
     url = 'http://10.0.0.136:11434/api/generate'
     with open("system.txt", "r") as file:
         system = file.read()
-    
     payload = {
-        'model': 'solar:latest',
+        'model': 'dolphin3:latest',
         'system': system,
         'prompt': f"Q: {question}\nA:",
         'stream': True,
     }
-    
     response = requests.post(url, json=payload, stream=True)
-    
     # Initialize variables for streaming
     current_message = ""
     temp_buffer = ""
@@ -154,8 +154,8 @@ async def smarty(interaction: discord.Interaction, question: str):
                 await messages[-1].edit(content=current_message)
             else:
                 messages.append(await interaction.followup.send(current_message))
-import chess
 
+# Command: Gemini
 @bot.tree.command(name='gemini', description="Uses Gemini to come up with a response")
 async def gemini(ctx, *, text: str):
     """Uses Gemini to come up with a response."""
@@ -168,6 +168,7 @@ async def gemini(ctx, *, text: str):
     else:
         await ctx.followup.send(output)
 
+# Command: GChat
 @bot.tree.command(name='gchat', description="Uses Gemini to chat with the bot")
 async def gchat(ctx, *, text: str):
     """Uses Gemini to chat with the bot."""
@@ -180,6 +181,7 @@ async def gchat(ctx, *, text: str):
     else:
         await ctx.followup.send(output)
 
+# Command: GClear
 @bot.tree.command(name='gclear', description="Clears the Gemini chat history")
 async def gclear(ctx):
     """Clears the Gemini chat history."""
@@ -187,6 +189,7 @@ async def gclear(ctx):
     gbot.clear()
     await ctx.response.send_message("Chat history cleared.")
 
+# Command: New Chess
 @bot.tree.command(name='new_chess', description="Restart or start a new game of chess")
 async def new_chess(ctx):
     """Starts a new game of chess with the user via print statements."""
@@ -198,6 +201,7 @@ async def new_chess(ctx):
         f"```{board}```"
     )
 
+# Command: Show Chess Board
 @bot.tree.command(name='show', description="Show the current board state")
 async def show(ctx):
     """Shows the current board state."""
@@ -209,6 +213,7 @@ async def show(ctx):
         await ctx.followup.send("Black to move:")
     await ctx.followup.send(f"```{board}```")
 
+# Command: Make a Move
 @bot.tree.command(name='move', description="Make a move in the current game of chess")
 async def move(ctx, move_str: str):
     """Makes a move in the current game of chess with the user via print statements."""
@@ -240,6 +245,7 @@ async def move(ctx, move_str: str):
     
     await ctx.response.send_message(response_message)
 
+# Command: Stockfish
 @bot.tree.command(name='stockfish', description="Play Stockfish's move as the next move")
 async def stockfish(ctx):
     """Get the best move from Stockfish."""
@@ -252,22 +258,9 @@ async def stockfish(ctx):
     board.push(result.move)
     await ctx.followup.send(f"```{board}```")
 
+# Command: List Members
 @bot.tree.command(name="list_members", description="List members based on role conditions with confirmation.")
 async def list_members(interaction: discord.Interaction, role_condition: str = "@everyone"):
-    """
-    Lists members based on role conditions with confirmation.
-    Args:
-        interaction (discord.Interaction): The interaction object representing the command invocation.
-        role_condition (str, optional): The role condition to filter members by. Defaults to "@everyone".
-    Returns:
-        None: This function sends messages to the interaction response and does not return any value.
-    Raises:
-        None: This function does not raise any exceptions.
-    Notes:
-        - Only members with the "HKN Exec Comm" role are allowed to use this command.
-        - If no members match the role condition, a message is sent indicating no members were found.
-        - A confirmation message is sent before listing the members, with a view containing Yes/No buttons for confirmation.
-    """
     """Lists members based on role conditions with confirmation."""
     # print logging of the command
     print(f"\nUser: {interaction.user.name} ({interaction.user.id})")
@@ -310,21 +303,9 @@ async def list_members(interaction: discord.Interaction, role_condition: str = "
     view = ConfirmationView(interaction, members_to_list, role_condition, action='list', ephm=True)
     await interaction.response.send_message(confirmation_msg, view=view)
 
+# Command: Remove Members
 @bot.tree.command(name="remove_members", description="Remove members based on role conditions with confirmation.")
 async def remove_members(interaction: discord.Interaction, role_condition: str):
-    """
-    Remove members (kick) based on role conditions, with confirmation.
-    Args:
-        interaction (discord.Interaction): The interaction object representing the command invocation.
-        role_condition (str): The condition to check against members' roles.
-    Returns:
-        None
-    Behavior:
-        - Checks if the user invoking the command has the required role.
-        - Parses the role condition and identifies members matching the condition.
-        - If no members match the condition, sends a message indicating so.
-        - Lists members matching the condition and asks for confirmation before removal.
-    """
     """Remove members (kick) based on role conditions, with confirmation."""
     # print logging of the command\
     print(f"\nUser: {interaction.user.name} ({interaction.user.id})")
@@ -364,19 +345,8 @@ async def remove_members(interaction: discord.Interaction, role_condition: str):
         new_msg = confirmation_msg[:1800] + "\n\n```diff\n-WARNING: To Many Members. Only the first 1800 characters are shown. To see the full list, use the `/list_members` Command.\n```"
         await interaction.response.send_message(new_msg, view=view)
 
-# Helper Stuff
+# Helper Functions
 def process_roles_condition(roles_string, member_roles):
-    """
-    Process the role condition string and check if the member's roles match.
-    The roles_string can contain roles separated by OR (|) and AND (&) operators.
-    Parentheses can be used to group conditions. The NOT operator (!) can be used
-    to negate a role condition.
-    Args:
-        roles_string (str): The string representing the role conditions.
-        member_roles (list): The list of roles that the member has.
-    Returns:
-        bool: True if the member's roles match the conditions, False otherwise.
-    """
     """Process the role condition string and check if the member's roles match."""
     def evaluate_condition(condition, member_roles):
         """Evaluate a single condition or a parenthesized group."""
@@ -405,6 +375,7 @@ def process_roles_condition(roles_string, member_roles):
     return False
 
 class ConfirmationView(View):
+    """Handles confirmation for actions like listing or removing members."""
     def __init__(self, interaction, members_to_remove, role_condition, action, ephm = False):
         super().__init__(timeout=30)  # Set timeout for response (30 seconds)
         self.interaction = interaction
